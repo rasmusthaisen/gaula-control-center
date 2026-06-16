@@ -42,16 +42,28 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Cache-busting: injicér timestamp i siden så Safari PWA ikke cacher gammelt indhold
-_ts = int(datetime.now().timestamp() / 180) * 180  # Skifter hvert 3. min
+# Force Safari PWA til at aldrig bruge cache
+_ts = int(datetime.now().timestamp() / 180) * 180
 st.markdown(f"""
 <script>
-// Sæt canonical URL med timestamp så Safari PWA altid henter frisk version
 (function() {{
+    // Afregistrer alle service workers
+    if ('serviceWorker' in navigator) {{
+        navigator.serviceWorker.getRegistrations().then(function(regs) {{
+            regs.forEach(function(r) {{ r.unregister(); }});
+        }});
+    }}
+    // Ryd alle caches
+    if ('caches' in window) {{
+        caches.keys().then(function(names) {{
+            names.forEach(function(n) {{ caches.delete(n); }});
+        }});
+    }}
+    // Tilføj timestamp til URL så Safari ser det som ny side
     var url = new URL(window.location.href);
-    if (!url.searchParams.get('_v') || url.searchParams.get('_v') != '{_ts}') {{
+    if (url.searchParams.get('_v') != '{_ts}') {{
         url.searchParams.set('_v', '{_ts}');
-        window.history.replaceState({{}}, '', url.toString());
+        window.location.replace(url.toString());
     }}
 }})();
 </script>
