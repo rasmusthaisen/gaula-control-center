@@ -9,6 +9,7 @@ import requests
 import json
 from datetime import date, datetime, timedelta
 import pandas as pd
+from streamlit_autorefresh import st_autorefresh
 
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
 RIVER_ID   = 25
@@ -30,6 +31,9 @@ HEADERS = {
 TODAY = date.today()
 CUR_YEAR = TODAY.year
 
+# Auto-refresh hvert 3. minut (180.000 ms)
+st_autorefresh(interval=180_000, key="auto_refresh")
+
 # ─── PAGE SETUP ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Gaula Control Center",
@@ -45,81 +49,135 @@ st.markdown("""
     html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     
     .main { background: #f8fafb; padding: 0; }
-    .block-container { padding: 1rem 1.5rem 2rem 1.5rem; max-width: 100%; }
     
+    /* Mobile-first padding */
+    .block-container { 
+        padding: 0.5rem 0.75rem 2rem 0.75rem !important; 
+        max-width: 100% !important; 
+    }
+    
+    /* Hide Streamlit top decorations on mobile */
+    header[data-testid="stHeader"] { display: none !important; }
+    #MainMenu { display: none !important; }
+    footer { display: none !important; }
+
     /* Header */
     .gc-header {
-        display: flex; align-items: baseline; gap: 12px;
+        display: flex; align-items: center; justify-content: space-between;
         border-bottom: 2px solid #1a6b4a;
-        padding-bottom: 8px; margin-bottom: 16px;
+        padding: 10px 0 8px 0; margin-bottom: 12px;
     }
-    .gc-title { font-size: 22px; font-weight: 700; color: #1a6b4a; margin: 0; }
-    .gc-subtitle { font-size: 13px; color: #888; margin: 0; }
-    .gc-meta { font-size: 11px; color: #aaa; }
+    .gc-title { font-size: 18px; font-weight: 700; color: #1a6b4a; margin: 0; }
+    .gc-subtitle { font-size: 12px; color: #888; margin: 0; }
+    .gc-meta { font-size: 10px; color: #aaa; line-height: 1.6; margin-bottom: 8px; }
     
+    /* KPI grid — 2 columns on mobile */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+    .kpi-grid-4 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+    .kpi-grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
     /* KPI cards */
     .kpi-card {
         background: white;
         border: 1px solid #e8f0eb;
-        border-radius: 8px;
-        padding: 14px 18px;
+        border-radius: 10px;
+        padding: 10px 12px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-        height: 100%;
     }
-    .kpi-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .kpi-value { font-size: 36px; font-weight: 700; color: #1a1a2e; line-height: 1.1; }
-    .kpi-value-lg { font-size: 48px; font-weight: 800; color: #1a6b4a; }
-    .kpi-sub { font-size: 12px; color: #aaa; margin-top: 4px; }
+    .kpi-card-hero {
+        background: white;
+        border: 1px solid #e8f0eb;
+        border-left: 4px solid #1a6b4a;
+        border-radius: 10px;
+        padding: 10px 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        grid-column: span 2;
+    }
+    .kpi-label { 
+        font-size: 10px; font-weight: 600; color: #888; 
+        text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; 
+    }
+    .kpi-value { font-size: 28px; font-weight: 700; color: #1a1a2e; line-height: 1.1; }
+    .kpi-value-lg { font-size: 42px; font-weight: 800; color: #1a6b4a; }
+    .kpi-value-sm { font-size: 22px; font-weight: 700; color: #1a1a2e; line-height: 1.1; }
+    .kpi-sub { font-size: 11px; color: #aaa; margin-top: 2px; }
     
-    /* Delta cards */
-    .delta-pos { color: #1a6b4a; font-size: 28px; font-weight: 700; }
-    .delta-neg { color: #c0392b; font-size: 28px; font-weight: 700; }
-    .delta-pct-pos { color: #1a6b4a; font-size: 13px; font-weight: 500; }
-    .delta-pct-neg { color: #c0392b; font-size: 13px; font-weight: 500; }
+    /* Delta */
+    .delta-pos { color: #1a6b4a; font-size: 22px; font-weight: 700; }
+    .delta-neg { color: #c0392b; font-size: 22px; font-weight: 700; }
+    .delta-pct-pos { color: #1a6b4a; font-size: 12px; font-weight: 500; }
+    .delta-pct-neg { color: #c0392b; font-size: 12px; font-weight: 500; }
     
     /* YTD bar */
-    .ytd-bar-bg { background: #e8f0eb; border-radius: 4px; height: 6px; margin-top: 8px; }
-    .ytd-bar-fill { background: #1a6b4a; border-radius: 4px; height: 6px; }
-    .ytd-bar-fill-25 { background: #4a9b6f; border-radius: 4px; height: 6px; }
-    .ytd-bar-fill-24 { background: #8bc4a0; border-radius: 4px; height: 6px; }
+    .ytd-bar-bg { background: #e8f0eb; border-radius: 4px; height: 5px; margin-top: 6px; }
+    .ytd-bar-fill { background: #1a6b4a; border-radius: 4px; height: 5px; }
+    .ytd-bar-fill-25 { background: #4a9b6f; border-radius: 4px; height: 5px; }
+    .ytd-bar-fill-24 { background: #8bc4a0; border-radius: 4px; height: 5px; }
     
     /* Section headers */
     .section-header {
         display: flex; align-items: center; gap: 8px;
-        font-size: 14px; font-weight: 600; color: #1a1a2e;
-        margin: 20px 0 10px 0;
+        font-size: 13px; font-weight: 600; color: #1a1a2e;
+        margin: 16px 0 8px 0;
         border-left: 3px solid #1a6b4a;
-        padding-left: 10px;
+        padding-left: 8px;
     }
     .count-badge {
         background: #1a6b4a; color: white;
-        font-size: 11px; font-weight: 600;
-        padding: 2px 7px; border-radius: 10px;
+        font-size: 10px; font-weight: 600;
+        padding: 2px 6px; border-radius: 10px;
     }
     
-    /* Table */
+    /* Table — smaller font on mobile */
     .stDataFrame { border: 1px solid #e8f0eb; border-radius: 8px; overflow: hidden; }
+    .stDataFrame td, .stDataFrame th { font-size: 12px !important; }
     
-    /* NVE card special */
-    .nve-card {
-        background: white;
-        border: 1px solid #e8f0eb;
-        border-radius: 8px;
-        padding: 14px 18px;
-    }
-    .nve-value { font-size: 30px; font-weight: 700; color: #1a6b4a; }
+    /* NVE card */
+    .nve-value { font-size: 26px; font-weight: 700; color: #1a6b4a; }
     
     /* Footer */
     .gc-footer {
-        text-align: center; font-size: 11px; color: #bbb;
-        margin-top: 30px; padding-top: 12px;
+        text-align: center; font-size: 10px; color: #bbb;
+        margin-top: 24px; padding-top: 10px;
         border-top: 1px solid #eee;
     }
     
     div[data-testid="stMetric"] { display: none; }
-    
-    /* Horgøien highlight in tables */
     .horg-row { background: #fff8f0 !important; }
+
+    /* Streamlit column gaps tighter on mobile */
+    [data-testid="column"] { padding: 0 3px !important; }
+    
+    /* Selectbox smaller */
+    .stSelectbox label { font-size: 12px !important; }
+
+    /* Desktop overrides */
+    @media (min-width: 768px) {
+        .block-container { padding: 1rem 1.5rem 2rem 1.5rem !important; }
+        .kpi-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+        .kpi-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .kpi-card-hero { grid-column: span 1; }
+        .kpi-value-lg { font-size: 48px; }
+        .kpi-value { font-size: 36px; }
+        .kpi-value-sm { font-size: 28px; }
+        .kpi-label { font-size: 11px; }
+        .gc-title { font-size: 22px; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -244,8 +302,9 @@ def parse_catch(item):
     except:
         return None
 
-@st.cache_data(ttl=600, show_spinner=False)
-def load_catches(year, max_pages=None):
+# Historiske år: cache 6 timer (ændrer sig kun marginalt)
+@st.cache_data(ttl=21600, show_spinner=False)
+def load_catches_historic(year):
     catches = []
     page = 1
     last_page = 999
@@ -258,11 +317,27 @@ def load_catches(year, max_pages=None):
             if c:
                 catches.append(c)
         page += 1
-        if max_pages and page > max_pages:
-            break
     return catches
 
-@st.cache_data(ttl=600, show_spinner=False)
+# Indeværende år: cache 3 minutter, hent kun side 1-2 (de nyeste)
+@st.cache_data(ttl=180, show_spinner=False)
+def load_catches_cur(year):
+    catches = []
+    page = 1
+    last_page = 999
+    while page <= last_page:
+        items, last_page = fetch_page(year, page)
+        if items is None:
+            break
+        for item in items:
+            c = parse_catch(item)
+            if c:
+                catches.append(c)
+        page += 1
+    return catches
+
+# NVE: cache 3 minutter
+@st.cache_data(ttl=180, show_spinner=False)
 def load_nve(date_from, date_to):
     headers = {"X-API-Key": NVE_API_KEY, "Accept": "application/json"}
     results = {}
@@ -285,9 +360,9 @@ def load_nve(date_from, date_to):
 
 # ─── LOAD DATA ────────────────────────────────────────────────────────────────
 with st.spinner("Henter fangstdata..."):
-    catches_cur  = load_catches(CUR_YEAR)
-    catches_prev = load_catches(CUR_YEAR - 1)
-    catches_2y   = load_catches(CUR_YEAR - 2)
+    catches_cur  = load_catches_cur(CUR_YEAR)
+    catches_prev = load_catches_historic(CUR_YEAR - 1)
+    catches_2y   = load_catches_historic(CUR_YEAR - 2)
 
 season_start = f"{CUR_YEAR}-06-01"
 today_iso = TODAY.isoformat()
@@ -323,74 +398,49 @@ if nve_data:
     nve_latest = nve_data[nve_latest_date]
 
 # ─── HEADER ───────────────────────────────────────────────────────────────────
-col_title, col_refresh = st.columns([8, 1])
-with col_title:
-    st.markdown(f"""
-    <div class="gc-header">
+st.markdown(f"""
+<div class="gc-header">
+    <div>
         <div class="gc-title">🐟 Gaula Control Center</div>
         <div class="gc-subtitle">vs {CUR_YEAR-1} / {CUR_YEAR-2}</div>
     </div>
-    <div class="gc-meta">
-        Sidst opdateret: {now_str} &nbsp;·&nbsp; 
-        Datasæson: {CUR_YEAR}-06-01 → {TODAY.strftime('%d.%m.%Y')} &nbsp;·&nbsp; 
-        Data opdateres automatisk hvert 10. minut &nbsp;·&nbsp;
-        Samlet datasæt hentet fra <b>{total_sources}</b> fangster
-    </div>
-    """, unsafe_allow_html=True)
+</div>
+<div class="gc-meta">
+    Opdateret: {now_str} &nbsp;·&nbsp; {total_sources} fangster i datasæt
+</div>
+""", unsafe_allow_html=True)
 
-with col_refresh:
-    if st.button("🔄 Opdater", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
-
-st.markdown("<br>", unsafe_allow_html=True)
+if st.button("🔄 Opdater nu", use_container_width=True):
+    st.cache_data.clear()
+    st.rerun()
 
 # ─── ROW 1: TOP KPI CARDS ─────────────────────────────────────────────────────
 today_count = len(today_c)
 today_kg    = sum(c["vaegt"] or 0 for c in today_c)
 today_horg  = sum(1 for c in today_c if c["is_horg"])
 
-c1, c2, c3, c4 = st.columns([2, 1, 1, 1.5])
+nve_str = f"{nve_latest} m³/s" if nve_latest else "—"
+nve_date_str = f"Senest {to_danish(nve_latest_date)}" if nve_latest_date else ""
 
-with c1:
-    nve_str = f"{nve_latest} m³/s" if nve_latest else "—"
-    nve_date_str = f"Senest {to_danish(nve_latest_date)}" if nve_latest_date else ""
-    st.markdown(f"""
-    <div class="kpi-card" style="border-left: 4px solid #1a6b4a;">
+st.markdown(f"""
+<div class="kpi-grid">
+    <div class="kpi-card-hero">
         <div class="kpi-label">Dagens fangster</div>
         <div class="kpi-value-lg">{today_count}</div>
-        <div class="kpi-sub">🐟 i dag på hele Gaula</div>
+        <div class="kpi-sub">🐟 i dag på hele Gaula · {today_kg:.1f} kg</div>
     </div>
-    """, unsafe_allow_html=True)
-
-with c2:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Dagens kg</div>
-        <div class="kpi-value">{today_kg:.1f}</div>
-        <div class="kpi-sub">KG</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with c3:
-    st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">Horgøien i dag</div>
         <div class="kpi-value">{today_horg}</div>
         <div class="kpi-sub">📍 fangster</div>
     </div>
-    """, unsafe_allow_html=True)
-
-with c4:
-    st.markdown(f"""
-    <div class="nve-card">
+    <div class="kpi-card">
         <div class="kpi-label">Vandføring Gaulfoss</div>
         <div class="nve-value">{nve_str}</div>
-        <div style="font-size:11px;color:#aaa;margin-top:4px;">〰 {nve_date_str}</div>
+        <div class="kpi-sub">〰 {nve_date_str}</div>
     </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
 # ─── ROW 2: YTD SAMMENLIGNING ─────────────────────────────────────────────────
 ytd_count_cur  = len(ytd_cur)
@@ -407,49 +457,34 @@ def bar(val, max_val, color_class):
     pct = min(100, int(val / max_val * 100))
     return f'<div class="ytd-bar-bg"><div class="{color_class}" style="width:{pct}%"></div></div>'
 
-col_a, col_b, col_c, col_d = st.columns(4)
-
-with col_a:
-    st.markdown(f"""
+st.markdown(f"""
+<div class="kpi-grid-4">
     <div class="kpi-card">
         <div class="kpi-label">Gaula YTD {CUR_YEAR}</div>
-        <div class="kpi-value" style="color:#1a6b4a;">{ytd_count_cur}</div>
+        <div class="kpi-value-sm" style="color:#1a6b4a;">{ytd_count_cur}</div>
         <div class="kpi-sub">{ytd_kg_cur:.0f} kg</div>
         {bar(ytd_count_cur, max_ytd, 'ytd-bar-fill')}
     </div>
-    """, unsafe_allow_html=True)
-
-with col_b:
-    st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">Gaula YTD {CUR_YEAR-1}</div>
-        <div class="kpi-value">{ytd_count_prev}</div>
+        <div class="kpi-value-sm">{ytd_count_prev}</div>
         <div class="kpi-sub">{ytd_kg_prev:.0f} kg</div>
         {bar(ytd_count_prev, max_ytd, 'ytd-bar-fill-25')}
     </div>
-    """, unsafe_allow_html=True)
-
-with col_c:
-    st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">Gaula YTD {CUR_YEAR-2}</div>
-        <div class="kpi-value">{ytd_count_2y}</div>
+        <div class="kpi-value-sm">{ytd_count_2y}</div>
         <div class="kpi-sub">{ytd_kg_2y:.0f} kg</div>
         {bar(ytd_count_2y, max_ytd, 'ytd-bar-fill-24')}
     </div>
-    """, unsafe_allow_html=True)
-
-with col_d:
-    st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">Horgøien YTD {CUR_YEAR}</div>
-        <div class="kpi-value">{ytd_horg_cur}</div>
-        <div class="kpi-sub">{sum(c['vaegt'] or 0 for c in ytd_cur if c['is_horg']):.0f} kg</div>
+        <div class="kpi-value-sm">{ytd_horg_cur}</div>
+        <div class="kpi-sub">{sum(c["vaegt"] or 0 for c in ytd_cur if c["is_horg"]):.0f} kg</div>
         {bar(ytd_horg_cur, max(ytd_horg_cur,1), 'ytd-bar-fill')}
     </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
 # ─── ROW 3: DELTA CARDS ───────────────────────────────────────────────────────
 delta_prev = ytd_count_cur - ytd_count_prev
@@ -462,38 +497,27 @@ def delta_class(v): return "delta-pos" if v >= 0 else "delta-neg"
 def pct_class(v): return "delta-pct-pos" if v >= 0 else "delta-pct-neg"
 def sign(v): return "+" if v >= 0 else ""
 
-col_d1, col_d2, col_d3 = st.columns(3)
-
-with col_d1:
-    st.markdown(f"""
+ytd_label = f"06-{TODAY.strftime('%d')}" if TODAY.month == 6 else TODAY.strftime("%m-%d")
+st.markdown(f"""
+<div class="kpi-grid-3">
     <div class="kpi-card">
         <div class="kpi-label">Δ vs {CUR_YEAR-1}</div>
         <div class="{delta_class(delta_prev)}">{sign(delta_prev)}{delta_prev}</div>
         <div class="{pct_class(delta_prev)}">{sign(pct_prev)}{pct_prev:.1f}%</div>
-        <div class="kpi-sub" style="margin-top:4px;">{sign(delta_kg_prev)}{delta_kg_prev:.0f} kg</div>
+        <div class="kpi-sub">{sign(delta_kg_prev)}{delta_kg_prev:.0f} kg</div>
     </div>
-    """, unsafe_allow_html=True)
-
-with col_d2:
-    st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">Δ vs {CUR_YEAR-2}</div>
         <div class="{delta_class(delta_2y)}">{sign(delta_2y)}{delta_2y}</div>
         <div class="{pct_class(pct_2y)}">{sign(pct_2y)}{pct_2y:.1f}%</div>
     </div>
-    """, unsafe_allow_html=True)
-
-with col_d3:
-    ytd_label = f"06-{TODAY.strftime('%d')}" if TODAY.month == 6 else TODAY.strftime("%m-%d")
-    st.markdown(f"""
     <div class="kpi-card">
         <div class="kpi-label">YTD dato</div>
-        <div class="kpi-value" style="font-size:28px;">{ytd_label}</div>
-        <div class="kpi-sub">Fra 1. juni → {TODAY.day}. juni {TODAY.year}</div>
+        <div class="kpi-value-sm">{ytd_label}</div>
+        <div class="kpi-sub">1. juni → {TODAY.day}. juni</div>
     </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
 # ─── TABLE HELPERS ────────────────────────────────────────────────────────────
 def make_df(catches):
