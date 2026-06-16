@@ -129,6 +129,41 @@ def to_danish(d):
     p = d[:10].split("-")
     return f"{p[2]}.{p[1]}.{p[0]}"
 
+def parse_datetime(raw):
+    """
+    Returnerer (dato_iso, tid_str) fra API-datofelter.
+    Håndterer: '2026-06-16T04:22:00.000000Z', '2026-06-16T06:22:00+02:00', '2026-06-16', None
+    Konverterer UTC → norsk sommertid (CEST = UTC+2).
+    """
+    if not raw:
+        return "", ""
+    try:
+        from datetime import timezone, timedelta
+        s = str(raw).strip()
+        # Kun dato
+        if len(s) == 10:
+            return s, ""
+        # Har tidsdel
+        if "T" in s:
+            # Normaliser: fjern mikrosekunder, håndter Z og +offset
+            s_clean = s.replace("Z", "+00:00")
+            # Python 3.7+ kan parse ISO 8601 med offset
+            try:
+                from datetime import datetime as dt
+                parsed = dt.fromisoformat(s_clean)
+                # Konverter til CEST (UTC+2)
+                cest = timezone(timedelta(hours=2))
+                parsed_local = parsed.astimezone(cest)
+                dato_iso = parsed_local.strftime("%Y-%m-%d")
+                tid_str  = parsed_local.strftime("%H:%M")
+                return dato_iso, tid_str
+            except:
+                # Fallback: tag første 10 og 11:16 som UTC
+                return s[:10], s[11:16]
+        return s[:10], ""
+    except:
+        return "", ""
+
 def fetch_page(year, page):
     body = {
         "page": page, "river_id": RIVER_ID, "year": year,
@@ -150,16 +185,15 @@ def parse_catch(item):
     try:
         cid = int(item.get("id", 0))
         if not cid: return None
-        dato_iso = item.get("date", "")
+        # Prøv alle mulige datofelter i API'et
+        raw_date = (item.get("date") or item.get("caught_at") or
+                    item.get("created_at") or item.get("updated_at") or "")
+        dato_iso, tid = parse_datetime(raw_date)
+        if not dato_iso: return None
         dato = to_danish(dato_iso)
         if not dato: return None
         parts = dato.split(".")
         yr = int(parts[2]) if len(parts) == 3 else CUR_YEAR
-
-        # Tid
-        tid = ""
-        if dato_iso and "T" in dato_iso:
-            tid = dato_iso[11:16]
 
         fisker = item.get("fisher_name", "") or ""
         if not fisker.strip():
