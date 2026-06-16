@@ -268,7 +268,7 @@ def load_nve(date_from, date_to):
     results = {}
     try:
         r = requests.get(NVE_URL, headers=headers, params={
-            "StationId": NVE_STATION, "Parameter": "1000",
+            "StationId": NVE_STATION, "Parameter": "1001",
             "ResolutionTime": "1440",
             "ReferenceTime": f"{date_from}/{date_to}",
         }, timeout=20)
