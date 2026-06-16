@@ -446,12 +446,8 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-if st.button("🔄 Opdater nu", use_container_width=True):
-    # Ryd KUN indeværende år + NVE — behold historiske cache
-    load_catches_fast.clear()
-    load_catches_full.clear()
-    load_nve.clear()
-    st.rerun()
+# Vis sidst opdateret + næste auto-refresh — ingen manuel knap
+st.caption(f"🔄 Opdateres automatisk hvert 3. min · Sidst: {now_str}")
 
 # ─── ROW 1: TOP KPI CARDS ─────────────────────────────────────────────────────
 today_count = len(today_c)
