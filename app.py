@@ -666,9 +666,9 @@ def daily_series(catches, year):
 
 series_cur  = daily_series(ytd_cur,  CUR_YEAR)
 series_prev = daily_series(ytd_prev, CUR_YEAR - 1)
+series_2y   = daily_series(ytd_2y,   CUR_YEAR - 2)
 
 if not series_cur.empty or not series_prev.empty:
-    # Align by day-of-season (days since June 1)
     def to_season_day(series, year):
         june1 = pd.Timestamp(f"{year}-06-01")
         s = series.copy()
@@ -677,20 +677,21 @@ if not series_cur.empty or not series_prev.empty:
 
     sc = to_season_day(series_cur,  CUR_YEAR)
     sp = to_season_day(series_prev, CUR_YEAR - 1)
-    
+    s2 = to_season_day(series_2y,   CUR_YEAR - 2)
+
     chart_df = pd.DataFrame({
         str(CUR_YEAR):     sc,
         str(CUR_YEAR - 1): sp,
+        str(CUR_YEAR - 2): s2,
     }).fillna(0)
-    
-    # Cumulative
+
     chart_df_cum = chart_df.cumsum()
-    
+
     tab1, tab2 = st.tabs(["Kumulativ YTD", "Dagligt"])
     with tab1:
-        st.line_chart(chart_df_cum, color=["#1a6b4a", "#8bc4a0"])
+        st.line_chart(chart_df_cum, color=["#1a6b4a", "#4a9b6f", "#8bc4a0"])
     with tab2:
-        st.bar_chart(chart_df, color=["#1a6b4a", "#8bc4a0"])
+        st.bar_chart(chart_df, color=["#1a6b4a", "#4a9b6f", "#8bc4a0"])
 
 # ─── VANDFØRING CHART ─────────────────────────────────────────────────────────
 if nve_data:
