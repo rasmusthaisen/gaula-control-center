@@ -405,9 +405,9 @@ now_str = datetime.now().strftime("%d.%m.%Y kl. %H:%M")
 today_c = [c for c in catches_cur_fast if c["dato_iso"] == TODAY.isoformat()]
 yest_c  = [c for c in catches_cur_fast if c["dato_iso"] == (TODAY - timedelta(days=1)).isoformat()]
 
-# Fase 2: Fuld sæsondata i baggrunden (til YTD/charts/tabeller)
+# Fase 2: Fuld sæsondata — historiske år fra cache, 2026 maks 10 sider
 with st.spinner("Henter sæsondata..."):
-    catches_cur  = load_catches_full(CUR_YEAR)
+    catches_cur  = load_catches_fast(CUR_YEAR, pages=10)
     catches_prev = load_catches_full(CUR_YEAR - 1)
     catches_2y   = load_catches_full(CUR_YEAR - 2)
 
@@ -447,7 +447,10 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 if st.button("🔄 Opdater nu", use_container_width=True):
-    st.cache_data.clear()
+    # Ryd KUN indeværende år + NVE — behold historiske cache
+    load_catches_fast.clear()
+    load_catches_full.clear()
+    load_nve.clear()
     st.rerun()
 
 # ─── ROW 1: TOP KPI CARDS ─────────────────────────────────────────────────────
