@@ -689,9 +689,9 @@ if not series_cur.empty or not series_prev.empty:
 
     tab1, tab2 = st.tabs(["Kumulativ YTD", "Dagligt"])
     with tab1:
-        st.line_chart(chart_df_cum, color=["#1a6b4a", "#4a9b6f", "#8bc4a0"])
+        st.line_chart(chart_df_cum, color=["#1a6b4a", "#e67e22", "#2980b9"])
     with tab2:
-        st.bar_chart(chart_df, color=["#1a6b4a", "#4a9b6f", "#8bc4a0"])
+        st.bar_chart(chart_df, color=["#1a6b4a", "#e67e22", "#2980b9"])
 
 # ─── VANDFØRING CHART ─────────────────────────────────────────────────────────
 if nve_data:
