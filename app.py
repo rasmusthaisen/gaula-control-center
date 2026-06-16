@@ -613,31 +613,74 @@ if nve_data:
     ]).set_index("Dato")
     st.line_chart(nve_df, color=["#2196f3"])
 
-# ─── SÆSON OVERSIGT ───────────────────────────────────────────────────────────
-st.markdown(f"""
-<div class="section-header">Hele sæsonen {CUR_YEAR} — alle fangster</div>
-""", unsafe_allow_html=True)
-
+# ─── TOP VALDA + SÆSON OVERSIGT ──────────────────────────────────────────────
 all_df = make_df(catches_cur)
-if not all_df.empty:
-    col_filter1, col_filter2, col_filter3 = st.columns(3)
-    with col_filter1:
-        vald_opts = ["Alle"] + sorted(all_df["Vald"].dropna().unique().tolist())
-        vald_sel = st.selectbox("Vald", vald_opts, key="vald_filter")
-    with col_filter2:
-        art_opts = ["Alle"] + sorted(all_df["Art"].dropna().unique().tolist())
-        art_sel = st.selectbox("Art", art_opts, key="art_filter")
-    with col_filter3:
-        gen_opts = ["Alle", "Ja", "Nej"]
-        gen_sel = st.selectbox("Genudsat", gen_opts, key="gen_filter")
-    
-    filtered = all_df.copy()
-    if vald_sel != "Alle": filtered = filtered[filtered["Vald"] == vald_sel]
-    if art_sel  != "Alle": filtered = filtered[filtered["Art"]  == art_sel]
-    if gen_sel  != "Alle": filtered = filtered[filtered["Genudsat"] == gen_sel]
-    
-    st.caption(f"{len(filtered)} fangster vises · {filtered['Kg'].sum():.0f} kg total")
-    show_table(filtered)
+
+col_left, col_right = st.columns([1, 2])
+
+with col_left:
+    st.markdown(f"""
+    <div class="section-header">Top valda {CUR_YEAR} — antal fangster</div>
+    """, unsafe_allow_html=True)
+
+    if not all_df.empty:
+        vald_stats = (
+            all_df.groupby("Vald")
+            .agg(
+                Fangster=("Kg", "count"),
+                Kg_total=("Kg", "sum"),
+                Snit_kg=("Kg", "mean"),
+            )
+            .reset_index()
+            .sort_values("Fangster", ascending=False)
+            .reset_index(drop=True)
+        )
+        vald_stats.index += 1  # Rank fra 1
+        vald_stats["Kg total"] = vald_stats["Kg_total"].map(lambda x: f"{x:.0f}")
+        vald_stats["Snit kg"] = vald_stats["Snit_kg"].map(lambda x: f"{x:.1f}")
+        vald_stats = vald_stats.drop(columns=["Kg_total", "Snit_kg"])
+
+        def highlight_horg_vald(row):
+            if "orgøien" in str(row["Vald"]).lower():
+                return ["background-color: #fff3e6; font-weight:500"] * len(row)
+            if row.name == 1:
+                return ["background-color: #f0f8f0; font-weight:600"] * len(row)
+            return [""] * len(row)
+
+        st.dataframe(
+            vald_stats.style.apply(highlight_horg_vald, axis=1),
+            use_container_width=True,
+            height=min(600, len(vald_stats) * 36 + 40),
+        )
+
+with col_right:
+    st.markdown(f"""
+    <div class="section-header">Hele sæsonen {CUR_YEAR} — alle fangster</div>
+    """, unsafe_allow_html=True)
+
+    if not all_df.empty:
+        col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+        with col_f1:
+            vald_opts = ["Alle"] + sorted(all_df["Vald"].dropna().unique().tolist())
+            vald_sel = st.selectbox("Vald", vald_opts, key="vald_filter")
+        with col_f2:
+            art_opts = ["Alle"] + sorted(all_df["Art"].dropna().unique().tolist())
+            art_sel = st.selectbox("Art", art_opts, key="art_filter")
+        with col_f3:
+            gen_opts = ["Alle", "Ja", "Nej"]
+            gen_sel = st.selectbox("Genudsat", gen_opts, key="gen_filter")
+        with col_f4:
+            red_opts = ["Alle"] + sorted(all_df["Redskab"].dropna().unique().tolist())
+            red_sel = st.selectbox("Redskab", red_opts, key="red_filter")
+
+        filtered = all_df.copy()
+        if vald_sel != "Alle": filtered = filtered[filtered["Vald"] == vald_sel]
+        if art_sel  != "Alle": filtered = filtered[filtered["Art"]  == art_sel]
+        if gen_sel  != "Alle": filtered = filtered[filtered["Genudsat"] == gen_sel]
+        if red_sel  != "Alle": filtered = filtered[filtered["Redskab"] == red_sel]
+
+        st.caption(f"{len(filtered)} fangster vises · {filtered['Kg'].sum():.0f} kg total · snit {filtered['Kg'].mean():.1f} kg")
+        show_table(filtered)
 
 # ─── FOOTER ───────────────────────────────────────────────────────────────────
 st.markdown(f"""
