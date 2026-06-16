@@ -189,6 +189,12 @@ def parse_catch(item):
         raw_date = (item.get("date") or item.get("caught_at") or
                     item.get("created_at") or item.get("updated_at") or "")
         dato_iso, tid = parse_datetime(raw_date)
+        # Tid kan ligge i separat felt
+        if not tid:
+            raw_time = item.get("time") or item.get("catch_time") or item.get("hour") or ""
+            if raw_time:
+                # Format: "HH:MM" eller "HH:MM:SS"
+                tid = str(raw_time)[:5]
         if not dato_iso: return None
         dato = to_danish(dato_iso)
         if not dato: return None
@@ -632,6 +638,25 @@ if not all_df.empty:
     
     st.caption(f"{len(filtered)} fangster vises · {filtered['Kg'].sum():.0f} kg total")
     show_table(filtered)
+
+# ─── DEBUG ────────────────────────────────────────────────────────────────────
+with st.expander("🔍 Debug: Rå API-data (fjernes når tid virker)"):
+    st.caption("Viser felter fra første fangst i dag eller sæsonen")
+    @st.cache_data(ttl=60, show_spinner=False)
+    def debug_raw():
+        import json
+        body = {"page":1,"river_id":25,"year":CUR_YEAR,"orderBy":"date","order":"desc",
+                "equipment_filter":[],"fish_type_filter":[],"catch_release_filter":[],"boat_filter":[],"limit":1}
+        try:
+            r = requests.post(API_CATCHES, json=body, headers=HEADERS, timeout=20)
+            if r.ok:
+                items = r.json().get("data",{}).get("catches",{}).get("data",[])
+                if items:
+                    return {k: v for k, v in items[0].items() 
+                            if any(x in k.lower() for x in ["date","time","at","hour","catch","created","updated"])}
+        except: pass
+        return {}
+    st.json(debug_raw())
 
 # ─── FOOTER ───────────────────────────────────────────────────────────────────
 st.markdown(f"""
