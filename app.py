@@ -28,11 +28,14 @@ HEADERS = {
     "user-agent":    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
 }
 
-TODAY = date.today()
+import pytz
+TZ = pytz.timezone("Europe/Oslo")
+NOW_LOCAL = datetime.now(TZ)
+TODAY = NOW_LOCAL.date()
 CUR_YEAR = TODAY.year
 
-# Auto-refresh hvert 3. minut (180.000 ms)
-count = st_autorefresh(interval=180_000, key="auto_refresh")
+# Auto-refresh hvert minutut (180.000 ms)
+count = count = st_autorefresh(interval=60_000, key="auto_refresh")
 
 # ─── PAGE SETUP ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -337,7 +340,7 @@ def parse_catch(item):
         return None
 
 # Hurtig load: kun side 1 (50 nyeste) — til dagens/gårsdagens visning
-@st.cache_data(ttl=180, show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def load_catches_fast(year, pages=1):
     catches = []
     for page in range(1, pages + 1):
@@ -370,7 +373,7 @@ def load_catches_full(year):
     return catches
 
 # NVE: cache 3 minutter
-@st.cache_data(ttl=180, show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def load_nve(date_from, date_to):
     headers = {"X-API-Key": NVE_API_KEY, "Accept": "application/json"}
     results = {}
@@ -399,7 +402,7 @@ season_start = f"{CUR_YEAR}-06-01"
 today_iso = TODAY.isoformat()
 nve_data = load_nve(season_start, today_iso)
 
-now_str = datetime.now().strftime("%d.%m.%Y kl. %H:%M")
+now_str = NOW_LOCAL.strftime("%d.%m.%Y kl. %H:%M")
 
 # Vis top KPIs og dagens/gårsdagens fangster med det samme
 today_c = [c for c in catches_cur_fast if c["dato_iso"] == TODAY.isoformat()]
@@ -447,7 +450,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Vis sidst opdateret + næste auto-refresh — ingen manuel knap
-st.caption(f"🔄 Opdateres automatisk hvert 3. min · Sidst: {now_str}")
+st.caption(f"🔄 Opdateres automatisk hvert minut · Sidst: {now_str}")
 
 # ─── ROW 1: TOP KPI CARDS ─────────────────────────────────────────────────────
 today_count = len(today_c)
