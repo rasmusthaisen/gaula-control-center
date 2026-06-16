@@ -405,28 +405,35 @@ def load_nve(date_from, date_to):
     return results
 
 # ─── LOAD DATA ────────────────────────────────────────────────────────────────
-# Fase 1: Hent kun de 50 nyeste fangster (hurtig — <2 sek)
-catches_cur_fast = load_catches_fast(CUR_YEAR, pages=1)
-
 season_start = f"{CUR_YEAR}-06-01"
-today_iso = TODAY.isoformat()
+today_iso    = TODAY.isoformat()
+now_str      = NOW_LOCAL.strftime("%d.%m.%Y kl. %H:%M")
+
+# Historiske år: én gang pr. session i state (ændrer sig ikke i løbet af dagen)
+if "catches_prev" not in st.session_state:
+    with st.spinner("Første load — henter sæsondata..."):
+        st.session_state.catches_prev = load_catches_full(CUR_YEAR - 1)
+        st.session_state.catches_2y   = load_catches_full(CUR_YEAR - 2)
+
+if "catches_cur" not in st.session_state:
+    with st.spinner("Henter sæson {CUR_YEAR}..."):
+        st.session_state.catches_cur = load_catches_fast(CUR_YEAR, pages=10)
+
+# Ved auto-refresh eller visibility-reload: kun hent side 1 og merge
+fresh = load_catches_fast(CUR_YEAR, pages=1)
+known_ids = {c["id"] for c in st.session_state.catches_cur}
+new_catches = [c for c in fresh if c["id"] not in known_ids]
+if new_catches:
+    st.session_state.catches_cur = new_catches + st.session_state.catches_cur
+
+catches_cur  = st.session_state.catches_cur
+catches_prev = st.session_state.catches_prev
+catches_2y   = st.session_state.catches_2y
+
 nve_data = load_nve(season_start, today_iso)
-
-now_str = NOW_LOCAL.strftime("%d.%m.%Y kl. %H:%M")
-
-# Vis top KPIs og dagens/gårsdagens fangster med det samme
-today_c = [c for c in catches_cur_fast if c["dato_iso"] == TODAY.isoformat()]
-yest_c  = [c for c in catches_cur_fast if c["dato_iso"] == (TODAY - timedelta(days=1)).isoformat()]
-
-# Fase 2: Fuld sæsondata — historiske år fra cache, 2026 maks 10 sider
-with st.spinner("Henter sæsondata..."):
-    catches_cur  = load_catches_fast(CUR_YEAR, pages=10)
-    catches_prev = load_catches_full(CUR_YEAR - 1)
-    catches_2y   = load_catches_full(CUR_YEAR - 2)
-
 total_sources = len(catches_cur) + len(catches_prev) + len(catches_2y)
 
-# ─── FILTER: YTD (today's date, same day/month, any year) ─────────────────────
+# ─── FILTER: YTD ──────────────────────────────────────────────────────────────
 def ytd_filter(catches, year):
     cutoff = TODAY.replace(year=year) if year != TODAY.year else TODAY
     return [c for c in catches if c["dato_iso"] and c["dato_iso"] <= cutoff.isoformat()]
@@ -435,7 +442,6 @@ ytd_cur  = ytd_filter(catches_cur,  CUR_YEAR)
 ytd_prev = ytd_filter(catches_prev, CUR_YEAR - 1)
 ytd_2y   = ytd_filter(catches_2y,   CUR_YEAR - 2)
 
-# Opdater med fuld sæsondata (mere præcis end fast-load)
 today_c = [c for c in catches_cur if c["dato_iso"] == TODAY.isoformat()]
 yest_c  = [c for c in catches_cur if c["dato_iso"] == (TODAY - timedelta(days=1)).isoformat()]
 
