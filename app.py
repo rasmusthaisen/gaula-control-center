@@ -45,30 +45,40 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Force Safari PWA til at aldrig bruge cache
-_ts = int(datetime.now().timestamp() / 180) * 180
-st.markdown(f"""
+# Page Visibility API: reload når bruger kommer tilbage til appen
+st.markdown("""
 <script>
-(function() {{
-    // Afregistrer alle service workers
-    if ('serviceWorker' in navigator) {{
-        navigator.serviceWorker.getRegistrations().then(function(regs) {{
-            regs.forEach(function(r) {{ r.unregister(); }});
-        }});
-    }}
-    // Ryd alle caches
-    if ('caches' in window) {{
-        caches.keys().then(function(names) {{
-            names.forEach(function(n) {{ caches.delete(n); }});
-        }});
-    }}
-    // Tilføj timestamp til URL så Safari ser det som ny side
-    var url = new URL(window.location.href);
-    if (url.searchParams.get('_v') != '{_ts}') {{
-        url.searchParams.set('_v', '{_ts}');
-        window.location.replace(url.toString());
-    }}
-}})();
+(function() {
+    // Reload når siden bliver synlig igen efter at have været i baggrunden
+    var hiddenAt = null;
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            hiddenAt = Date.now();
+        } else {
+            // Hvis siden har været skjult i mere end 60 sekunder → reload
+            if (hiddenAt && (Date.now() - hiddenAt) > 60000) {
+                window.location.reload();
+            }
+            hiddenAt = null;
+        }
+    });
+
+    // Samme trick via pageshow (iOS Safari PWA)
+    window.addEventListener('pageshow', function(e) {
+        if (e.persisted) {
+            // Side kom fra bfcache — tving reload
+            window.location.reload();
+        }
+    });
+
+    // Focus-event som backup
+    window.addEventListener('focus', function() {
+        if (hiddenAt && (Date.now() - hiddenAt) > 60000) {
+            window.location.reload();
+        }
+    });
+})();
 </script>
 """, unsafe_allow_html=True)
 
