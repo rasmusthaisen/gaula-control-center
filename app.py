@@ -466,7 +466,18 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Vis sidst opdateret + næste auto-refresh — ingen manuel knap
-st.caption(f"🔄 Opdateres automatisk hvert minut · Sidst: {now_str}")
+col_cap, col_btn = st.columns([4, 1])
+with col_cap:
+    st.caption(f"🔄 Opdateres automatisk hvert minut · Sidst: {now_str}")
+with col_btn:
+    if st.button("🔄 Opdater", use_container_width=True):
+        # Ryd kun side 1 cache — behold session state datasæt
+        load_catches_fast.clear()
+        load_nve.clear()
+        # Fjern current year fra session state så den genindlæses
+        if "catches_cur" in st.session_state:
+            del st.session_state["catches_cur"]
+        st.rerun()
 
 # ─── ROW 1: TOP KPI CARDS ─────────────────────────────────────────────────────
 today_count = len(today_c)
