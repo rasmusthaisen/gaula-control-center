@@ -32,7 +32,7 @@ TODAY = date.today()
 CUR_YEAR = TODAY.year
 
 # Auto-refresh hvert 3. minut (180.000 ms)
-st_autorefresh(interval=180_000, key="auto_refresh")
+count = st_autorefresh(interval=180_000, key="auto_refresh")
 
 # ─── PAGE SETUP ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -41,6 +41,28 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# Cache-busting: injicér timestamp i siden så Safari PWA ikke cacher gammelt indhold
+_ts = int(datetime.now().timestamp() / 180) * 180  # Skifter hvert 3. min
+st.markdown(f"""
+<script>
+// Sæt canonical URL med timestamp så Safari PWA altid henter frisk version
+(function() {{
+    var url = new URL(window.location.href);
+    if (!url.searchParams.get('_v') || url.searchParams.get('_v') != '{_ts}') {{
+        url.searchParams.set('_v', '{_ts}');
+        window.history.replaceState({{}}, '', url.toString());
+    }}
+}})();
+</script>
+""", unsafe_allow_html=True)
+
+# No-cache meta tags — tvinger Safari PWA til ikke at cache siden
+st.markdown("""
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <style>
